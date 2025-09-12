@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>互動式換錢遊戲</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -10,6 +11,8 @@
       justify-content: space-around;
       align-items: flex-start;
       margin: 20px;
+      flex-wrap: wrap; /* 允許換行 */
+      gap: 20px;
     }
     .zone {
       width: 30%;
@@ -33,17 +36,17 @@
       cursor: grab;
       font-weight: bold;
       user-select: none;
-      /* 新增的硬幣顏色 */
+      touch-action: none; /* 允許觸控拖曳 */
       transition: background-color 0.3s ease;
     }
     .coin.ten {
-      background-color: #ffd700; /* 金色 */
+      background-color: #ffd700;
     }
     .coin.five {
-      background-color: #a9a9a9; /* 深灰色 */
+      background-color: #a9a9a9;
     }
     .coin.one {
-      background-color: #d3d3d3; /* 淺灰色 */
+      background-color: #d3d3d3;
     }
     .coin.selected {
       outline: 3px solid blue;
@@ -58,6 +61,25 @@
       padding: 3px 8px;
       border: 1px solid #aaa;
       border-radius: 5px;
+    }
+    .dragging-coin {
+      position: absolute;
+      z-index: 1000;
+      pointer-events: none;
+      transition: none;
+      opacity: 0.8;
+      transform: translate(-50%, -50%);
+    }
+
+    /* RWD 響應式佈局 */
+    @media (max-width: 768px) {
+      .zone {
+        width: 90%;
+      }
+      body {
+        flex-direction: column;
+        align-items: center;
+      }
     }
   </style>
 </head>
@@ -94,6 +116,13 @@
 
     let selectedOnes = [];
     let selectedFives = [];
+    let draggedElement = null;
+    let dragType = null;
+    let dragCount = 0;
+    let longPressTimeout = null;
+    let isDragging = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
 
     // 初始化 13 個 1元
     for (let i = 0; i < 13; i++) {
@@ -105,120 +134,7 @@
       fiveCounter.textContent = `選取：${selectedFives.length}`;
     }
 
-    // 事件委託：統一處理拖曳行為
-    document.addEventListener("dragstart", e => {
-      const target = e.target;
-      if (!target.classList.contains("coin")) {
-        e.preventDefault();
-        return;
-      }
-      
-      e.dataTransfer.setDragImage(target, 20, 20);
-
-      if (target.classList.contains("ten")) {
-        e.dataTransfer.setData("coin-type", "ten");
-      } else if (target.classList.contains("five")) {
-        if (selectedFives.length > 0) {
-            e.dataTransfer.setData("coin-type", "five-group");
-            e.dataTransfer.setData("five-count", selectedFives.length);
-        } else {
-            e.dataTransfer.setData("coin-type", "five-single");
-        }
-      } else if (target.classList.contains("one")) {
-        if (selectedOnes.length > 0 && selectedOnes.length % 5 === 0) {
-          e.dataTransfer.setData("coin-type", "one-group");
-          e.dataTransfer.setData("one-count", selectedOnes.length);
-        } else {
-          e.preventDefault();
-        }
-      }
-    });
-
-    // 拖曳放置邏輯
-    const zones = [tenZone, fiveZone, oneZone];
-    zones.forEach(zone => {
-      zone.addEventListener("dragover", e => e.preventDefault());
-
-      zone.addEventListener("drop", e => {
-        e.preventDefault();
-        const droppedType = e.dataTransfer.getData("coin-type");
-        const droppedZone = e.currentTarget;
-        const draggedCoin = document.querySelector(".coin.ten");
-
-        // 處理 10 元硬幣的換算
-        if (droppedType === "ten") {
-          if (draggedCoin && droppedZone.id === "five-zone") {
-            draggedCoin.remove();
-            addCoin("five", fiveZone);
-            addCoin("five", fiveZone);
-            coinSound.currentTime = 0;
-            coinSound.play();
-          } else if (draggedCoin && droppedZone.id === "one-zone") {
-            draggedCoin.remove();
-            for (let i = 0; i < 10; i++) addCoin("one", oneZone);
-            coinSound.currentTime = 0;
-            coinSound.play();
-          }
-        }
-
-        // 處理 5 元硬幣（單個或多個）到 1 元區的換算
-        else if ((droppedType === "five-single" || droppedType === "five-group") && droppedZone.id === "one-zone") {
-            const fiveCount = (droppedType === "five-single") ? 1 : parseInt(e.dataTransfer.getData("five-count"), 10);
-            
-            if (droppedType === "five-group") {
-                selectedFives.forEach(c => c.remove());
-                selectedFives = [];
-            } else {
-                const singleFive = document.querySelector(".coin.five");
-                if (singleFive) singleFive.remove();
-            }
-
-            const oneCount = fiveCount * 5;
-            for (let i = 0; i < oneCount; i++) addCoin("one", oneZone);
-            updateCounters();
-            coinSound.currentTime = 0;
-            coinSound.play();
-        }
-
-        // 處理 5 元硬幣群組到 10 元區的換算
-        else if (droppedType === "five-group" && droppedZone.id === "ten-zone") {
-          const fiveCount = parseInt(e.dataTransfer.getData("five-count"), 10);
-          if (fiveCount > 0 && fiveCount % 2 === 0) {
-            selectedFives.forEach(c => c.remove());
-            selectedFives = [];
-            const tenCount = fiveCount / 2;
-            for (let i = 0; i < tenCount; i++) addCoin("ten", tenZone);
-            updateCounters();
-            coinSound.currentTime = 0;
-            coinSound.play();
-          }
-        }
-
-        // 處理 1 元硬幣群組的換算
-        else if (droppedType === "one-group") {
-          const oneCount = parseInt(e.dataTransfer.getData("one-count"), 10);
-          if (droppedZone.id === "five-zone" && oneCount % 5 === 0) {
-            selectedOnes.forEach(c => c.remove());
-            selectedOnes = [];
-            const fiveCount = oneCount / 5;
-            for (let i = 0; i < fiveCount; i++) addCoin("five", fiveZone);
-            updateCounters();
-            coinSound.currentTime = 0;
-            coinSound.play();
-          } else if (droppedZone.id === "ten-zone" && oneCount % 10 === 0) {
-            selectedOnes.forEach(c => c.remove());
-            selectedOnes = [];
-            const tenCount = oneCount / 10;
-            for (let i = 0; i < tenCount; i++) addCoin("ten", tenZone);
-            updateCounters();
-            coinSound.currentTime = 0;
-            coinSound.play();
-          }
-        }
-      });
-    });
-
-    // 點擊選取硬幣
+    // 事件委託：處理點擊選取
     document.addEventListener("click", e => {
       const coin = e.target;
       if (!coin.classList.contains("coin")) return;
@@ -245,6 +161,146 @@
       updateCounters();
     });
 
+    // 處理觸控事件
+    document.addEventListener("touchstart", e => {
+      const target = e.target;
+      if (!target.classList.contains("coin")) return;
+      
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      
+      longPressTimeout = setTimeout(() => {
+        isDragging = true;
+        draggedElement = createDraggedElement(target);
+        document.body.appendChild(draggedElement);
+        e.preventDefault(); // 阻止瀏覽器預設的捲動行為
+      }, 500); // 0.5 秒長按
+
+      if (target.classList.contains("ten")) {
+        dragType = "ten";
+      } else if (target.classList.contains("five")) {
+        if (selectedFives.length > 0) {
+            dragType = "five-group";
+            dragCount = selectedFives.length;
+        } else {
+            dragType = "five-single";
+            dragCount = 1;
+        }
+      } else if (target.classList.contains("one")) {
+        if (selectedOnes.length > 0 && selectedOnes.length % 5 === 0) {
+          dragType = "one-group";
+          dragCount = selectedOnes.length;
+        } else {
+          isDragging = false;
+          clearTimeout(longPressTimeout);
+        }
+      }
+    }, { passive: false });
+
+    document.addEventListener("touchmove", e => {
+      if (!isDragging) return;
+      
+      const touch = e.touches[0];
+      draggedElement.style.left = `${touch.clientX}px`;
+      draggedElement.style.top = `${touch.clientY}px`;
+      e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener("touchend", e => {
+      clearTimeout(longPressTimeout);
+      if (!isDragging) return;
+      isDragging = false;
+
+      const touch = e.changedTouches[0];
+      const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+
+      let droppedZone = null;
+      if (dropTarget) {
+        droppedZone = dropTarget.closest(".zone");
+      }
+
+      if (draggedElement) {
+        draggedElement.remove();
+        draggedElement = null;
+      }
+      
+      if (droppedZone) {
+        handleDrop(droppedZone);
+      }
+    });
+
+    function handleDrop(droppedZone) {
+      // 處理 10 元硬幣的換算
+      if (dragType === "ten" && droppedZone.id === "five-zone") {
+        const draggedCoin = document.querySelector(".coin.ten");
+        if (draggedCoin) draggedCoin.remove();
+        addCoin("five", fiveZone);
+        addCoin("five", fiveZone);
+        coinSound.currentTime = 0;
+        coinSound.play();
+      } else if (dragType === "ten" && droppedZone.id === "one-zone") {
+        const draggedCoin = document.querySelector(".coin.ten");
+        if (draggedCoin) draggedCoin.remove();
+        for (let i = 0; i < 10; i++) addCoin("one", oneZone);
+        coinSound.currentTime = 0;
+        coinSound.play();
+      }
+
+      // 處理 5 元硬幣（單個或多個）到 1 元區的換算
+      else if ((dragType === "five-single" || dragType === "five-group") && droppedZone.id === "one-zone") {
+          const fiveCount = dragCount;
+          if (dragType === "five-group") {
+              selectedFives.forEach(c => c.remove());
+              selectedFives = [];
+          } else {
+              const singleFive = document.querySelector(".coin.five");
+              if (singleFive) singleFive.remove();
+          }
+
+          const oneCount = fiveCount * 5;
+          for (let i = 0; i < oneCount; i++) addCoin("one", oneZone);
+          updateCounters();
+          coinSound.currentTime = 0;
+          coinSound.play();
+      }
+
+      // 處理 5 元硬幣群組到 10 元區的換算
+      else if (dragType === "five-group" && droppedZone.id === "ten-zone") {
+        const fiveCount = dragCount;
+        if (fiveCount > 0 && fiveCount % 2 === 0) {
+          selectedFives.forEach(c => c.remove());
+          selectedFives = [];
+          const tenCount = fiveCount / 2;
+          for (let i = 0; i < tenCount; i++) addCoin("ten", tenZone);
+          updateCounters();
+          coinSound.currentTime = 0;
+          coinSound.play();
+        }
+      }
+
+      // 處理 1 元硬幣群組的換算
+      else if (dragType === "one-group") {
+        const oneCount = dragCount;
+        if (droppedZone.id === "five-zone" && oneCount % 5 === 0) {
+          selectedOnes.forEach(c => c.remove());
+          selectedOnes = [];
+          const fiveCount = oneCount / 5;
+          for (let i = 0; i < fiveCount; i++) addCoin("five", fiveZone);
+          updateCounters();
+          coinSound.currentTime = 0;
+          coinSound.play();
+        } else if (droppedZone.id === "ten-zone" && oneCount % 10 === 0) {
+          selectedOnes.forEach(c => c.remove());
+          selectedOnes = [];
+          const tenCount = oneCount / 10;
+          for (let i = 0; i < tenCount; i++) addCoin("ten", tenZone);
+          updateCounters();
+          coinSound.currentTime = 0;
+          coinSound.play();
+        }
+      }
+    }
+
     // 輔助函式：新增硬幣
     function addCoin(type, zone) {
       const coin = document.createElement("div");
@@ -253,6 +309,16 @@
       coin.setAttribute("draggable", "true");
       zone.appendChild(coin);
     }
+    
+    // 輔助函式：創建拖曳中的硬幣視覺元素
+    function createDraggedElement(originalCoin) {
+      const clone = originalCoin.cloneNode(true);
+      clone.classList.add('dragging-coin');
+      clone.style.left = `${touchStartX}px`;
+      clone.style.top = `${touchStartY}px`;
+      return clone;
+    }
+
   </script>
 </body>
 </html>
