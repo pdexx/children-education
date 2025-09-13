@@ -8,13 +8,13 @@
     body {
       font-family: Arial, sans-serif;
       display: flex;
-      justify-content: space-around;
+      justify-content: space-evenly;
       align-items: flex-start;
       margin: 20px;
     }
     .zone {
-      width: 30%;
-      min-height: 300px;
+      width: 300px;
+      height: 400px;
       border: 2px dashed #666;
       border-radius: 10px;
       padding: 10px;
@@ -61,22 +61,38 @@
     }
     #lang-toggle {
         position: fixed;
-        top: 10px;
-        left: 10px;
+        bottom: 10px;
+        right: 10px;
         padding: 8px 12px;
         border: 1px solid #ccc;
         border-radius: 5px;
         cursor: pointer;
         background-color: #f0f0f0;
     }
-    #desktop-only-message {
+    #game-container {
         display: none;
+    }
+    #desktop-only-message {
+        display: block;
         text-align: center;
         margin-top: 100px;
         font-size: 24px;
         color: #555;
     }
   </style>
+
+  <script>
+    function isMobileDevice() {
+      return (typeof window.orientation !== "undefined") || (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/BlackBerry/i) || navigator.userAgent.match(/iPhone|iPad|iPod/i) || navigator.userAgent.match(/Opera Mini/i) || navigator.userAgent.match(/IEMobile/i));
+    }
+    if (!isMobileDevice()) {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('game-container').style.display = 'flex';
+        document.getElementById('desktop-only-message').style.display = 'none';
+        document.getElementById('lang-toggle').style.display = 'block';
+      });
+    }
+  </script>
 </head>
 <body>
   <button id="lang-toggle">English / 中文</button>
@@ -90,6 +106,10 @@
     <div id="ten-zone" class="zone">
       <h2 data-lang-key="tenZoneTitle">10元區</h2>
       <div class="coin ten" draggable="true">10</div>
+      <div id="ten-counter" class="counter">
+        <span data-lang-key="selectedText">選取</span>：
+        <span class="count">0</span>
+      </div>
     </div>
 
     <div id="five-zone" class="zone">
@@ -121,12 +141,14 @@
     const gameContainer = document.getElementById("game-container");
     const desktopOnlyMessage = document.getElementById("desktop-only-message");
 
+    const tenCounter = document.getElementById("ten-counter");
     const oneCounter = document.getElementById("one-counter");
     const fiveCounter = document.getElementById("five-counter");
 
     const coinSound = document.getElementById("coin-sound");
     const clickSound = document.getElementById("click-sound");
 
+    let selectedTens = [];
     let selectedOnes = [];
     let selectedFives = [];
 
@@ -154,10 +176,12 @@
 
     function updateCounters() {
       const selectedText = langContent[currentLang].selectedText;
-      oneCounter.querySelector('.count').textContent = selectedOnes.length;
-      fiveCounter.querySelector('.count').textContent = selectedFives.length;
+      tenCounter.querySelector('[data-lang-key="selectedText"]').textContent = selectedText;
+      tenCounter.querySelector('.count').textContent = selectedTens.length;
       oneCounter.querySelector('[data-lang-key="selectedText"]').textContent = selectedText;
+      oneCounter.querySelector('.count').textContent = selectedOnes.length;
       fiveCounter.querySelector('[data-lang-key="selectedText"]').textContent = selectedText;
+      fiveCounter.querySelector('.count').textContent = selectedFives.length;
     }
 
     // 語言切換功能
@@ -173,24 +197,6 @@
     }
     langToggleBtn.addEventListener('click', switchLang);
 
-    // 判斷是否為行動裝置
-    function isMobileDevice() {
-      return (typeof window.orientation !== "undefined") || (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/BlackBerry/i) || navigator.userAgent.match(/iPhone|iPad|iPod/i) || navigator.userAgent.match(/Opera Mini/i) || navigator.userAgent.match(/IEMobile/i));
-    }
-
-    // 根據裝置顯示對應內容
-    window.onload = () => {
-      if (isMobileDevice()) {
-        gameContainer.style.display = 'none';
-        desktopOnlyMessage.style.display = 'block';
-        langToggleBtn.style.display = 'none';
-      } else {
-        gameContainer.style.display = 'flex';
-        desktopOnlyMessage.style.display = 'none';
-        langToggleBtn.style.display = 'block';
-      }
-    };
-
     // 事件委託：統一處理拖曳行為
     document.addEventListener("dragstart", e => {
       const target = e.target;
@@ -202,7 +208,12 @@
       e.dataTransfer.setDragImage(target, 20, 20);
 
       if (target.classList.contains("ten")) {
-        e.dataTransfer.setData("coin-type", "ten");
+        if (selectedTens.length > 0) {
+            e.dataTransfer.setData("coin-type", "ten-group");
+            e.dataTransfer.setData("ten-count", selectedTens.length);
+        } else {
+            e.dataTransfer.setData("coin-type", "ten-single");
+        }
       } else if (target.classList.contains("five")) {
         if (selectedFives.length > 0) {
             e.dataTransfer.setData("coin-type", "five-group");
@@ -228,22 +239,33 @@
         e.preventDefault();
         const droppedType = e.dataTransfer.getData("coin-type");
         const droppedZone = e.currentTarget;
-        const draggedCoin = document.querySelector(".coin.ten");
 
-        if (droppedType === "ten") {
-          if (draggedCoin && droppedZone.id === "five-zone") {
-            draggedCoin.remove();
-            addCoin("five", fiveZone);
-            addCoin("five", fiveZone);
-            coinSound.currentTime = 0;
-            coinSound.play();
-          } else if (draggedCoin && droppedZone.id === "one-zone") {
-            draggedCoin.remove();
-            for (let i = 0; i < 10; i++) addCoin("one", oneZone);
-            coinSound.currentTime = 0;
-            coinSound.play();
+        // 處理 10 元硬幣的換算
+        if (droppedType === "ten-single" || droppedType === "ten-group") {
+          const tenCount = (droppedType === "ten-single") ? 1 : parseInt(e.dataTransfer.getData("ten-count"), 10);
+          
+          if (droppedType === "ten-group") {
+            selectedTens.forEach(c => c.remove());
+            selectedTens = [];
+          } else {
+            const singleTen = document.querySelector(".coin.ten");
+            if (singleTen) singleTen.remove();
           }
+
+          if (droppedZone.id === "five-zone") {
+            const fiveCount = tenCount * 2;
+            for (let i = 0; i < fiveCount; i++) addCoin("five", fiveZone);
+            updateCounters();
+          } else if (droppedZone.id === "one-zone") {
+            const oneCount = tenCount * 10;
+            for (let i = 0; i < oneCount; i++) addCoin("one", oneZone);
+            updateCounters();
+          }
+          coinSound.currentTime = 0;
+          coinSound.play();
         }
+
+        // 處理 5 元硬幣（單個或多個）到 1 元區的換算
         else if ((droppedType === "five-single" || droppedType === "five-group") && droppedZone.id === "one-zone") {
             const fiveCount = (droppedType === "five-single") ? 1 : parseInt(e.dataTransfer.getData("five-count"), 10);
             
@@ -261,6 +283,8 @@
             coinSound.currentTime = 0;
             coinSound.play();
         }
+
+        // 處理 5 元硬幣群組到 10 元區的換算
         else if (droppedType === "five-group" && droppedZone.id === "ten-zone") {
           const fiveCount = parseInt(e.dataTransfer.getData("five-count"), 10);
           if (fiveCount > 0 && fiveCount % 2 === 0) {
@@ -273,6 +297,8 @@
             coinSound.play();
           }
         }
+
+        // 處理 1 元硬幣群組的換算
         else if (droppedType === "one-group") {
           const oneCount = parseInt(e.dataTransfer.getData("one-count"), 10);
           if (droppedZone.id === "five-zone" && oneCount % 5 === 0) {
@@ -318,6 +344,14 @@
         } else {
           coin.classList.add("selected");
           selectedFives.push(coin);
+        }
+      } else if (coin.classList.contains("ten")) {
+        if (selectedTens.includes(coin)) {
+          coin.classList.remove("selected");
+          selectedTens = selectedTens.filter(c => c !== coin);
+        } else {
+          coin.classList.add("selected");
+          selectedTens.push(coin);
         }
       }
       updateCounters();
