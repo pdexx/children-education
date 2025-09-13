@@ -130,6 +130,7 @@
       }
       
       e.dataTransfer.setDragImage(target, 20, 20);
+      e.preventDefault(); // 新增的程式碼：阻止預設行為
 
       if (target.classList.contains("ten")) {
         e.dataTransfer.setData("coin-type", "ten");
