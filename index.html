@@ -96,8 +96,6 @@
   <audio id="coin-sound" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"></audio>
   <audio id="click-sound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/DragDropTouch/2.0.2/DragDropTouch.js"></script>
-
   <script>
     const tenZone = document.getElementById("ten-zone");
     const fiveZone = document.getElementById("five-zone");
@@ -122,18 +120,14 @@
       fiveCounter.textContent = `選取：${selectedFives.length}`;
     }
 
-    // 事件委託：統一處理拖曳行為
+    // --- 網頁版：滑鼠拖曳邏輯 ---
     document.addEventListener("dragstart", e => {
       const target = e.target;
       if (!target.classList.contains("coin")) {
-        // 如果不是硬幣，則不處理
         return;
       }
       
-      // 確保只有在 e.dataTransfer 存在時才設定拖曳影像
-      if (e.dataTransfer) {
-        e.dataTransfer.setDragImage(target, 20, 20);
-      }
+      e.dataTransfer.setDragImage(target, 20, 20);
 
       if (target.classList.contains("ten")) {
         e.dataTransfer.setData("coin-type", "ten");
@@ -149,13 +143,11 @@
           e.dataTransfer.setData("coin-type", "one-group");
           e.dataTransfer.setData("one-count", selectedOnes.length);
         } else {
-          // 如果選取數量不符，則阻止拖曳
           e.preventDefault();
         }
       }
     });
 
-    // 拖曳放置邏輯
     const zones = [tenZone, fiveZone, oneZone];
     zones.forEach(zone => {
       zone.addEventListener("dragover", e => e.preventDefault());
@@ -166,7 +158,6 @@
         const droppedZone = e.currentTarget;
         const draggedCoin = document.querySelector(".coin.ten");
 
-        // 處理 10 元硬幣的換算
         if (droppedType === "ten") {
           if (draggedCoin && droppedZone.id === "five-zone") {
             draggedCoin.remove();
@@ -181,8 +172,6 @@
             coinSound.play();
           }
         }
-
-        // 處理 5 元硬幣（單個或多個）到 1 元區的換算
         else if ((droppedType === "five-single" || droppedType === "five-group") && droppedZone.id === "one-zone") {
             const fiveCount = (droppedType === "five-single") ? 1 : parseInt(e.dataTransfer.getData("five-count"), 10);
             
@@ -200,8 +189,6 @@
             coinSound.currentTime = 0;
             coinSound.play();
         }
-
-        // 處理 5 元硬幣群組到 10 元區的換算
         else if (droppedType === "five-group" && droppedZone.id === "ten-zone") {
           const fiveCount = parseInt(e.dataTransfer.getData("five-count"), 10);
           if (fiveCount > 0 && fiveCount % 2 === 0) {
@@ -214,8 +201,6 @@
             coinSound.play();
           }
         }
-
-        // 處理 1 元硬幣群組的換算
         else if (droppedType === "one-group") {
           const oneCount = parseInt(e.dataTransfer.getData("one-count"), 10);
           if (droppedZone.id === "five-zone" && oneCount % 5 === 0) {
@@ -239,7 +224,7 @@
       });
     });
 
-    // 點擊選取硬幣
+    // --- 通用：點擊選取邏輯 ---
     document.addEventListener("click", e => {
       const coin = e.target;
       if (!coin.classList.contains("coin")) return;
@@ -266,7 +251,7 @@
       updateCounters();
     });
 
-    // 輔助函式：新增硬幣
+    // --- 輔助函式：新增硬幣 ---
     function addCoin(type, zone) {
       const coin = document.createElement("div");
       coin.className = `coin ${type}`;
