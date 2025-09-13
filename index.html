@@ -1,4 +1,104 @@
-<script>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>互動式換錢遊戲</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      margin: 20px;
+    }
+    .zone {
+      width: 30%;
+      min-height: 300px;
+      border: 2px dashed #666;
+      border-radius: 10px;
+      padding: 10px;
+      position: relative;
+    }
+    .zone h2 {
+      text-align: center;
+    }
+    .coin {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      margin: 5px;
+      cursor: grab;
+      font-weight: bold;
+      user-select: none;
+      transition: background-color 0.3s ease;
+    }
+    .coin.ten {
+      background-color: #ffd700;
+    }
+    .coin.five {
+      background-color: #a9a9a9;
+    }
+    .coin.one {
+      background-color: #d3d3d3;
+    }
+    .coin.selected {
+      outline: 3px solid blue;
+    }
+    .counter {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #fff8dc;
+      padding: 3px 8px;
+      border: 1px solid #aaa;
+      border-radius: 5px;
+    }
+
+    /* 手機版 RWD 樣式 */
+    @media (max-width: 600px) {
+      body {
+        flex-direction: column;
+        align-items: center;
+      }
+      .zone {
+        width: 90%;
+        margin-bottom: 20px;
+      }
+      #five-zone {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="ten-zone" class="zone">
+    <h2>10元區</h2>
+    <div class="coin ten" draggable="true">10</div>
+  </div>
+
+  <div id="five-zone" class="zone">
+    <h2>5元區</h2>
+    <div class="coin five" draggable="true">5</div>
+    <div id="five-counter" class="counter">選取：0</div>
+  </div>
+
+  <div id="one-zone" class="zone">
+    <h2>1元區</h2>
+    <div id="one-counter" class="counter">選取：0</div>
+  </div>
+
+  <audio id="coin-sound" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"></audio>
+  <audio id="click-sound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/DragDropTouch/2.0.2/DragDropTouch.js"></script>
+
+  <script>
     const tenZone = document.getElementById("ten-zone");
     const fiveZone = document.getElementById("five-zone");
     const oneZone = document.getElementById("one-zone");
@@ -27,16 +127,13 @@
       const target = e.target;
       if (!target.classList.contains("coin")) {
         // 如果不是硬幣，則不處理
-        e.preventDefault();
         return;
       }
       
-      // 判斷是否為觸控拖曳 (e.dataTransfer 會是 null)
-      if (!e.dataTransfer) {
-        e.preventDefault(); // 阻止手機頁面滑動
+      // 確保只有在 e.dataTransfer 存在時才設定拖曳影像
+      if (e.dataTransfer) {
+        e.dataTransfer.setDragImage(target, 20, 20);
       }
-
-      e.dataTransfer.setDragImage(target, 20, 20);
 
       if (target.classList.contains("ten")) {
         e.dataTransfer.setData("coin-type", "ten");
@@ -178,3 +275,5 @@
       zone.appendChild(coin);
     }
   </script>
+</body>
+</html>
