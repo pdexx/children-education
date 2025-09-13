@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>Interactive Coin Exchange Game 互動式換錢遊戲</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>互動式換錢遊戲</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -58,23 +59,55 @@
       border: 1px solid #aaa;
       border-radius: 5px;
     }
+    #lang-toggle {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: #f0f0f0;
+    }
+    #desktop-only-message {
+        display: none;
+        text-align: center;
+        margin-top: 100px;
+        font-size: 24px;
+        color: #555;
+    }
   </style>
 </head>
 <body>
-  <div id="ten-zone" class="zone">
-    <h2>10 Dollar Zone / 10元區</h2>
-    <div class="coin ten" draggable="true">10</div>
+  <button id="lang-toggle">English / 中文</button>
+  
+  <div id="desktop-only-message">
+    This page is for desktop use only.<br>
+    此網頁僅限桌機使用。
   </div>
 
-  <div id="five-zone" class="zone">
-    <h2>5 Dollar Zone / 5元區</h2>
-    <div class="coin five" draggable="true">5</div>
-    <div id="five-counter" class="counter">Selected: 0 / 選取：0</div>
-  </div>
+  <div id="game-container">
+    <div id="ten-zone" class="zone">
+      <h2 data-lang-key="tenZoneTitle">10元區</h2>
+      <div class="coin ten" draggable="true">10</div>
+    </div>
 
-  <div id="one-zone" class="zone">
-    <h2>1 Dollar Zone / 1元區</h2>
-    <div id="one-counter" class="counter">Selected: 0 / 選取：0</div>
+    <div id="five-zone" class="zone">
+      <h2 data-lang-key="fiveZoneTitle">5元區</h2>
+      <div class="coin five" draggable="true">5</div>
+      <div id="five-counter" class="counter">
+        <span data-lang-key="selectedText">選取</span>：
+        <span class="count">0</span>
+      </div>
+    </div>
+
+    <div id="one-zone" class="zone">
+      <h2 data-lang-key="oneZoneTitle">1元區</h2>
+      <div id="one-counter" class="counter">
+        <span data-lang-key="selectedText">選取</span>：
+        <span class="count">0</span>
+      </div>
+    </div>
   </div>
 
   <audio id="coin-sound" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"></audio>
@@ -84,6 +117,9 @@
     const tenZone = document.getElementById("ten-zone");
     const fiveZone = document.getElementById("five-zone");
     const oneZone = document.getElementById("one-zone");
+    const langToggleBtn = document.getElementById("lang-toggle");
+    const gameContainer = document.getElementById("game-container");
+    const desktopOnlyMessage = document.getElementById("desktop-only-message");
 
     const oneCounter = document.getElementById("one-counter");
     const fiveCounter = document.getElementById("five-counter");
@@ -94,15 +130,66 @@
     let selectedOnes = [];
     let selectedFives = [];
 
+    // 語言內容
+    const langContent = {
+      zh: {
+        tenZoneTitle: '10元區',
+        fiveZoneTitle: '5元區',
+        oneZoneTitle: '1元區',
+        selectedText: '選取',
+      },
+      en: {
+        tenZoneTitle: '10 Dollar Zone',
+        fiveZoneTitle: '5 Dollar Zone',
+        oneZoneTitle: '1 Dollar Zone',
+        selectedText: 'Selected',
+      }
+    };
+    let currentLang = 'zh';
+
     // 初始化 13 個 1元
     for (let i = 0; i < 13; i++) {
       addCoin("one", oneZone);
     }
 
     function updateCounters() {
-      oneCounter.textContent = `Selected: ${selectedOnes.length} / 選取：${selectedOnes.length}`;
-      fiveCounter.textContent = `Selected: ${selectedFives.length} / 選取：${selectedFives.length}`;
+      const selectedText = langContent[currentLang].selectedText;
+      oneCounter.querySelector('.count').textContent = selectedOnes.length;
+      fiveCounter.querySelector('.count').textContent = selectedFives.length;
+      oneCounter.querySelector('[data-lang-key="selectedText"]').textContent = selectedText;
+      fiveCounter.querySelector('[data-lang-key="selectedText"]').textContent = selectedText;
     }
+
+    // 語言切換功能
+    function switchLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.documentElement.lang = currentLang;
+
+      document.querySelectorAll('[data-lang-key]').forEach(element => {
+        const key = element.getAttribute('data-lang-key');
+        element.textContent = langContent[currentLang][key];
+      });
+      updateCounters();
+    }
+    langToggleBtn.addEventListener('click', switchLang);
+
+    // 判斷是否為行動裝置
+    function isMobileDevice() {
+      return (typeof window.orientation !== "undefined") || (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/BlackBerry/i) || navigator.userAgent.match(/iPhone|iPad|iPod/i) || navigator.userAgent.match(/Opera Mini/i) || navigator.userAgent.match(/IEMobile/i));
+    }
+
+    // 根據裝置顯示對應內容
+    window.onload = () => {
+      if (isMobileDevice()) {
+        gameContainer.style.display = 'none';
+        desktopOnlyMessage.style.display = 'block';
+        langToggleBtn.style.display = 'none';
+      } else {
+        gameContainer.style.display = 'flex';
+        desktopOnlyMessage.style.display = 'none';
+        langToggleBtn.style.display = 'block';
+      }
+    };
 
     // 事件委託：統一處理拖曳行為
     document.addEventListener("dragstart", e => {
@@ -137,14 +224,12 @@
     const zones = [tenZone, fiveZone, oneZone];
     zones.forEach(zone => {
       zone.addEventListener("dragover", e => e.preventDefault());
-
       zone.addEventListener("drop", e => {
         e.preventDefault();
         const droppedType = e.dataTransfer.getData("coin-type");
         const droppedZone = e.currentTarget;
         const draggedCoin = document.querySelector(".coin.ten");
 
-        // 處理 10 元硬幣的換算
         if (droppedType === "ten") {
           if (draggedCoin && droppedZone.id === "five-zone") {
             draggedCoin.remove();
@@ -159,8 +244,6 @@
             coinSound.play();
           }
         }
-
-        // 處理 5 元硬幣（單個或多個）到 1 元區的換算
         else if ((droppedType === "five-single" || droppedType === "five-group") && droppedZone.id === "one-zone") {
             const fiveCount = (droppedType === "five-single") ? 1 : parseInt(e.dataTransfer.getData("five-count"), 10);
             
@@ -178,8 +261,6 @@
             coinSound.currentTime = 0;
             coinSound.play();
         }
-
-        // 處理 5 元硬幣群組到 10 元區的換算
         else if (droppedType === "five-group" && droppedZone.id === "ten-zone") {
           const fiveCount = parseInt(e.dataTransfer.getData("five-count"), 10);
           if (fiveCount > 0 && fiveCount % 2 === 0) {
@@ -192,8 +273,6 @@
             coinSound.play();
           }
         }
-
-        // 處理 1 元硬幣群組的換算
         else if (droppedType === "one-group") {
           const oneCount = parseInt(e.dataTransfer.getData("one-count"), 10);
           if (droppedZone.id === "five-zone" && oneCount % 5 === 0) {
