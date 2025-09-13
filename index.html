@@ -12,6 +12,8 @@
       align-items: flex-start;
       margin: 20px;
       overscroll-behavior-y: contain;
+      background-color: #222;
+      color: #eee;
     }
     .zone {
       width: 30%;
@@ -20,6 +22,7 @@
       border-radius: 10px;
       padding: 10px;
       position: relative;
+      background: #333;
     }
     .zone h2 {
       text-align: center;
@@ -36,6 +39,7 @@
       font-weight: bold;
       user-select: none;
       transition: background-color 0.3s ease;
+      touch-action: none; /* 防止手機誤觸捲動 */
     }
     .coin.ten {
       background-color: #ffd700;
@@ -56,6 +60,7 @@
       font-size: 16px;
       font-weight: bold;
       background: #fff8dc;
+      color: #000;
       padding: 3px 8px;
       border: 1px solid #aaa;
       border-radius: 5px;
@@ -112,7 +117,11 @@
     let selectedFives = [];
     let draggedCoinType = null;
 
-    // 初始化 13 個 1元，並為所有硬幣設定事件
+    // 手機拖曳相關
+    let activeCoin = null;
+    let startX = 0, startY = 0;
+
+    // 初始化 13 個 1元
     for (let i = 0; i < 13; i++) {
       addCoin("one", oneZone);
     }
@@ -125,7 +134,7 @@
       fiveCounter.textContent = `選取：${selectedFives.length}`;
     }
 
-    // 新增硬幣並為其設定事件
+    // 新增硬幣
     function addCoin(type, zone) {
       const coin = document.createElement("div");
       coin.className = `coin ${type}`;
@@ -134,73 +143,90 @@
       zone.appendChild(coin);
     }
 
-    // 統一為所有硬幣添加事件
+    // 為硬幣綁事件
     function addEventsToCoin(coin) {
       coin.addEventListener('mousedown', startDrag);
       coin.addEventListener('mouseup', endDrag);
       coin.addEventListener('click', selectCoin);
+
+      // 手機
       coin.addEventListener('touchstart', startTouchDrag, { passive: false });
       coin.addEventListener('touchend', endTouchDrag);
     }
 
-    // --- 網頁版：滑鼠拖曳邏輯 ---
+    // --- 桌機拖曳 ---
     function startDrag(e) {
       const target = e.target;
       if (!target.classList.contains("coin")) return;
-      
       draggedCoinType = getDraggedCoinType(target);
       if (!draggedCoinType) {
         e.preventDefault();
       }
-
-      // 監聽 mousemove 以實現拖曳視覺效果
       document.addEventListener('mousemove', drag);
     }
-
-    function drag(e) {
-      // 實作拖曳中的視覺效果
-    }
-
+    function drag(e) { }
     function endDrag(e) {
       const target = e.target;
       if (!target.classList.contains("coin")) return;
-
       const dropZone = e.target.closest('.zone');
       if (dropZone) {
         handleDropLogic(draggedCoinType, dropZone);
       }
-      
       draggedCoinType = null;
       document.removeEventListener('mousemove', drag);
     }
 
-    // --- 手機版：觸控拖曳邏輯 ---
+    // --- 手機拖曳 ---
     function startTouchDrag(e) {
-      e.preventDefault(); // 阻止頁面滑動
+      e.preventDefault();
+      const touch = e.touches[0];
       const target = e.target;
       if (!target.classList.contains("coin")) return;
 
-      // 觸發點擊選取效果
-      selectCoin(e);
+      activeCoin = target;
+      startX = touch.clientX;
+      startY = touch.clientY;
+
+      activeCoin.style.position = "absolute";
+      activeCoin.style.zIndex = 1000;
+
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
+    }
+
+    function onTouchMove(e) {
+      if (!activeCoin) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      activeCoin.style.transform = `translate(${dx}px, ${dy}px)`;
     }
 
     function endTouchDrag(e) {
+      if (!activeCoin) return;
       e.preventDefault();
+
       const touch = e.changedTouches[0];
       const endElement = document.elementFromPoint(touch.clientX, touch.clientY);
-      
+
+      // 還原
+      activeCoin.style.position = "";
+      activeCoin.style.zIndex = "";
+      activeCoin.style.transform = "";
+
       if (endElement) {
         const dropZone = endElement.closest('.zone');
         if (dropZone) {
-          const selectedCoinType = getDraggedCoinType(e.target);
+          const selectedCoinType = getDraggedCoinType(activeCoin);
           if (selectedCoinType) {
             handleDropLogic(selectedCoinType, dropZone);
           }
         }
       }
+      activeCoin = null;
+      document.removeEventListener("touchmove", onTouchMove);
     }
 
-    // 輔助函式：取得拖曳的硬幣類型
+    // 拖曳硬幣種類判斷
     function getDraggedCoinType(target) {
       if (target.classList.contains("ten")) {
         return "ten";
@@ -218,11 +244,10 @@
       return null;
     }
 
-    // 核心換算邏輯
+    // 換錢邏輯
     function handleDropLogic(droppedType, droppedZone) {
       if (!droppedType || !droppedZone) return;
 
-      // 由於我們改用客製化邏輯，需手動移除硬幣
       if (droppedType === "ten") {
         const tenCoin = tenZone.querySelector('.coin.ten');
         if (tenCoin) tenCoin.remove();
@@ -272,7 +297,7 @@
       coinSound.play();
     }
 
-    // 點擊選取硬幣
+    // 點擊選取
     function selectCoin(e) {
       const coin = e.target;
       if (!coin.classList.contains("coin")) return;
