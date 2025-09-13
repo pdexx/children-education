@@ -11,7 +11,6 @@
       justify-content: space-around;
       align-items: flex-start;
       margin: 20px;
-      /* 阻止手機彈性捲動 */
       overscroll-behavior-y: contain;
     }
     .zone {
@@ -61,8 +60,6 @@
       border: 1px solid #aaa;
       border-radius: 5px;
     }
-
-    /* 手機版 RWD 樣式 */
     @media (max-width: 600px) {
       body {
         flex-direction: column;
@@ -81,17 +78,18 @@
 <body>
   <div id="ten-zone" class="zone">
     <h2>10元區</h2>
-    <div class="coin ten" draggable="true">10</div>
+    <div class="coin ten">10</div>
   </div>
 
   <div id="five-zone" class="zone">
     <h2>5元區</h2>
-    <div class="coin five" draggable="true">5</div>
+    <div class="coin five">5</div>
     <div id="five-counter" class="counter">選取：0</div>
   </div>
 
   <div id="one-zone" class="zone">
     <h2>1元區</h2>
+    <div class="coin one">1</div>
     <div id="one-counter" class="counter">選取：0</div>
   </div>
 
@@ -112,155 +110,139 @@
 
     let selectedOnes = [];
     let selectedFives = [];
+    let draggedCoinType = null;
 
-    // 初始化 13 個 1元
+    // 初始化 13 個 1元，並為所有硬幣設定事件
     for (let i = 0; i < 13; i++) {
       addCoin("one", oneZone);
     }
+    document.querySelectorAll('.coin').forEach(coin => {
+      addEventsToCoin(coin);
+    });
 
     function updateCounters() {
       oneCounter.textContent = `選取：${selectedOnes.length}`;
       fiveCounter.textContent = `選取：${selectedFives.length}`;
     }
 
-    // 輔助函式：新增硬幣
+    // 新增硬幣並為其設定事件
     function addCoin(type, zone) {
       const coin = document.createElement("div");
       coin.className = `coin ${type}`;
       coin.textContent = type === "ten" ? "10" : type === "five" ? "5" : "1";
+      addEventsToCoin(coin);
       zone.appendChild(coin);
-      
-      // 為新硬幣添加事件監聽器
-      addTouchEvents(coin);
-      addDragEvents(coin);
+    }
+
+    // 統一為所有硬幣添加事件
+    function addEventsToCoin(coin) {
+      coin.addEventListener('mousedown', startDrag);
+      coin.addEventListener('mouseup', endDrag);
+      coin.addEventListener('click', selectCoin);
+      coin.addEventListener('touchstart', startTouchDrag, { passive: false });
+      coin.addEventListener('touchend', endTouchDrag);
     }
 
     // --- 網頁版：滑鼠拖曳邏輯 ---
-    function addDragEvents(coin) {
-      coin.setAttribute("draggable", "true");
+    function startDrag(e) {
+      const target = e.target;
+      if (!target.classList.contains("coin")) return;
       
-      coin.addEventListener("dragstart", e => {
-        const target = e.target;
-        if (!target.classList.contains("coin")) return;
-        
-        e.dataTransfer.setDragImage(target, 20, 20);
+      draggedCoinType = getDraggedCoinType(target);
+      if (!draggedCoinType) {
+        e.preventDefault();
+      }
 
-        if (target.classList.contains("ten")) {
-          e.dataTransfer.setData("coin-type", "ten");
-        } else if (target.classList.contains("five")) {
-          if (selectedFives.length > 0) {
-              e.dataTransfer.setData("coin-type", "five-group");
-              e.dataTransfer.setData("five-count", selectedFives.length);
-          } else {
-              e.dataTransfer.setData("coin-type", "five-single");
-          }
-        } else if (target.classList.contains("one")) {
-          if (selectedOnes.length > 0 && selectedOnes.length % 5 === 0) {
-            e.dataTransfer.setData("coin-type", "one-group");
-            e.dataTransfer.setData("one-count", selectedOnes.length);
-          } else {
-            e.preventDefault();
-          }
-        }
-      });
+      // 監聽 mousemove 以實現拖曳視覺效果
+      document.addEventListener('mousemove', drag);
     }
 
-    allZones.forEach(zone => {
-      zone.addEventListener("dragover", e => e.preventDefault());
-      zone.addEventListener("drop", e => {
-        e.preventDefault();
-        const droppedType = e.dataTransfer.getData("coin-type");
-        const droppedZone = e.currentTarget;
-        handleDropLogic(droppedType, droppedZone);
-      });
-    });
+    function drag(e) {
+      // 實作拖曳中的視覺效果
+    }
+
+    function endDrag(e) {
+      const target = e.target;
+      if (!target.classList.contains("coin")) return;
+
+      const dropZone = e.target.closest('.zone');
+      if (dropZone) {
+        handleDropLogic(draggedCoinType, dropZone);
+      }
+      
+      draggedCoinType = null;
+      document.removeEventListener('mousemove', drag);
+    }
 
     // --- 手機版：觸控拖曳邏輯 ---
-    function addTouchEvents(coin) {
-      coin.addEventListener("touchstart", e => {
-        e.preventDefault(); // 阻止頁面滑動
-        const target = e.target;
-        if (!target.classList.contains("coin")) return;
+    function startTouchDrag(e) {
+      e.preventDefault(); // 阻止頁面滑動
+      const target = e.target;
+      if (!target.classList.contains("coin")) return;
 
-        // 觸發點擊選取效果
-        clickSound.currentTime = 0;
-        clickSound.play();
-        if (target.classList.contains("one")) {
-          if (selectedOnes.includes(target)) {
-            target.classList.remove("selected");
-            selectedOnes = selectedOnes.filter(c => c !== target);
-          } else {
-            target.classList.add("selected");
-            selectedOnes.push(target);
-          }
-        } else if (target.classList.contains("five")) {
-          if (selectedFives.includes(target)) {
-            target.classList.remove("selected");
-            selectedFives = selectedFives.filter(c => c !== target);
-          } else {
-            target.classList.add("selected");
-            selectedFives.push(target);
-          }
-        }
-        updateCounters();
-      });
-
-      // 觸控結束後，處理換算邏輯
-      coin.addEventListener("touchend", e => {
-        e.preventDefault();
-        const touch = e.changedTouches[0];
-        const endElement = document.elementFromPoint(touch.clientX, touch.clientY);
-        
-        if (endElement && endElement.classList.contains("zone")) {
-          const droppedZone = endElement;
-          // 模擬拖曳行為，並呼叫換算邏輯
-          let droppedType = "";
-          if (coin.classList.contains("ten")) {
-            droppedType = "ten";
-          } else if (coin.classList.contains("five")) {
-            if (selectedFives.length > 0) {
-              droppedType = "five-group";
-            } else {
-              droppedType = "five-single";
-            }
-          } else if (coin.classList.contains("one") && selectedOnes.length > 0 && selectedOnes.length % 5 === 0) {
-            droppedType = "one-group";
-          }
-          
-          handleDropLogic(droppedType, droppedZone);
-        }
-      });
+      // 觸發點擊選取效果
+      selectCoin(e);
     }
 
-    // --- 核心換算邏輯 ---
+    function endTouchDrag(e) {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      const endElement = document.elementFromPoint(touch.clientX, touch.clientY);
+      
+      if (endElement) {
+        const dropZone = endElement.closest('.zone');
+        if (dropZone) {
+          const selectedCoinType = getDraggedCoinType(e.target);
+          if (selectedCoinType) {
+            handleDropLogic(selectedCoinType, dropZone);
+          }
+        }
+      }
+    }
+
+    // 輔助函式：取得拖曳的硬幣類型
+    function getDraggedCoinType(target) {
+      if (target.classList.contains("ten")) {
+        return "ten";
+      } else if (target.classList.contains("five")) {
+        if (selectedFives.length > 0) {
+          return "five-group";
+        } else {
+          return "five-single";
+        }
+      } else if (target.classList.contains("one")) {
+        if (selectedOnes.length > 0 && selectedOnes.length % 5 === 0) {
+          return "one-group";
+        }
+      }
+      return null;
+    }
+
+    // 核心換算邏輯
     function handleDropLogic(droppedType, droppedZone) {
       if (!droppedType || !droppedZone) return;
 
-      const draggedCoin = document.querySelector(".coin.ten");
-
+      // 由於我們改用客製化邏輯，需手動移除硬幣
       if (droppedType === "ten") {
-        if (draggedCoin && droppedZone.id === "five-zone") {
-          draggedCoin.remove();
+        const tenCoin = tenZone.querySelector('.coin.ten');
+        if (tenCoin) tenCoin.remove();
+        if (droppedZone.id === "five-zone") {
           addCoin("five", fiveZone);
           addCoin("five", fiveZone);
-        } else if (draggedCoin && droppedZone.id === "one-zone") {
-          draggedCoin.remove();
+        } else if (droppedZone.id === "one-zone") {
           for (let i = 0; i < 10; i++) addCoin("one", oneZone);
-        } else {
-            return;
         }
       }
       else if ((droppedType === "five-single" || droppedType === "five-group") && droppedZone.id === "one-zone") {
         const fiveCount = (droppedType === "five-single") ? 1 : selectedFives.length;
         if (droppedType === "five-group") {
-            selectedFives.forEach(c => c.remove());
-            selectedFives = [];
+          selectedFives.forEach(c => c.remove());
+          selectedFives = [];
         } else {
-            const singleFive = document.querySelector(".coin.five");
-            if (singleFive) singleFive.remove();
+          const singleFive = fiveZone.querySelector('.coin.five');
+          if (singleFive) singleFive.remove();
         }
-        const oneCount = fiveCount * 5;
-        for (let i = 0; i < oneCount; i++) addCoin("one", oneZone);
+        for (let i = 0; i < fiveCount * 5; i++) addCoin("one", oneZone);
         updateCounters();
       }
       else if (droppedType === "five-group" && droppedZone.id === "ten-zone") {
@@ -268,8 +250,7 @@
         if (fiveCount > 0 && fiveCount % 2 === 0) {
           selectedFives.forEach(c => c.remove());
           selectedFives = [];
-          const tenCount = fiveCount / 2;
-          for (let i = 0; i < tenCount; i++) addCoin("ten", tenZone);
+          for (let i = 0; i < fiveCount / 2; i++) addCoin("ten", tenZone);
           updateCounters();
         }
       }
@@ -278,27 +259,45 @@
         if (droppedZone.id === "five-zone" && oneCount % 5 === 0) {
           selectedOnes.forEach(c => c.remove());
           selectedOnes = [];
-          const fiveCount = oneCount / 5;
-          for (let i = 0; i < fiveCount; i++) addCoin("five", fiveZone);
+          for (let i = 0; i < oneCount / 5; i++) addCoin("five", fiveZone);
           updateCounters();
         } else if (droppedZone.id === "ten-zone" && oneCount % 10 === 0) {
           selectedOnes.forEach(c => c.remove());
           selectedOnes = [];
-          const tenCount = oneCount / 10;
-          for (let i = 0; i < tenCount; i++) addCoin("ten", tenZone);
+          for (let i = 0; i < oneCount / 10; i++) addCoin("ten", tenZone);
           updateCounters();
         }
       }
       coinSound.currentTime = 0;
       coinSound.play();
     }
-    
-    // 初始化硬幣的拖曳與觸控事件
-    document.querySelectorAll('.coin').forEach(coin => {
-        addTouchEvents(coin);
-        addDragEvents(coin);
-    });
 
+    // 點擊選取硬幣
+    function selectCoin(e) {
+      const coin = e.target;
+      if (!coin.classList.contains("coin")) return;
+      clickSound.currentTime = 0;
+      clickSound.play();
+
+      if (coin.classList.contains("one")) {
+        if (selectedOnes.includes(coin)) {
+          coin.classList.remove("selected");
+          selectedOnes = selectedOnes.filter(c => c !== coin);
+        } else {
+          coin.classList.add("selected");
+          selectedOnes.push(coin);
+        }
+      } else if (coin.classList.contains("five")) {
+        if (selectedFives.includes(coin)) {
+          coin.classList.remove("selected");
+          selectedFives = selectedFives.filter(c => c !== coin);
+        } else {
+          coin.classList.add("selected");
+          selectedFives.push(coin);
+        }
+      }
+      updateCounters();
+    }
   </script>
 </body>
 </html>
