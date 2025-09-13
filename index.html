@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>互動式換錢遊戲</title>
   <style>
     body {
@@ -11,6 +11,8 @@
       justify-content: space-around;
       align-items: flex-start;
       margin: 20px;
+      /* 阻止手機彈性捲動 */
+      overscroll-behavior-y: contain;
     }
     .zone {
       width: 30%;
@@ -120,34 +122,7 @@
       fiveCounter.textContent = `選取：${selectedFives.length}`;
     }
 
-    // --- 網頁版：滑鼠拖曳邏輯 ---
-    document.addEventListener("dragstart", e => {
-      const target = e.target;
-      if (!target.classList.contains("coin")) {
-        return;
-      }
-      
-      e.dataTransfer.setDragImage(target, 20, 20);
-
-      if (target.classList.contains("ten")) {
-        e.dataTransfer.setData("coin-type", "ten");
-      } else if (target.classList.contains("five")) {
-        if (selectedFives.length > 0) {
-            e.dataTransfer.setData("coin-type", "five-group");
-            e.dataTransfer.setData("five-count", selectedFives.length);
-        } else {
-            e.dataTransfer.setData("coin-type", "five-single");
-        }
-      } else if (target.classList.contains("one")) {
-        if (selectedOnes.length > 0 && selectedOnes.length % 5 === 0) {
-          e.dataTransfer.setData("coin-type", "one-group");
-          e.dataTransfer.setData("one-count", selectedOnes.length);
-        } else {
-          e.preventDefault();
-        }
-      }
-    });
-
+    // 拖曳放置邏輯
     const zones = [tenZone, fiveZone, oneZone];
     zones.forEach(zone => {
       zone.addEventListener("dragover", e => e.preventDefault());
@@ -224,7 +199,7 @@
       });
     });
 
-    // --- 通用：點擊選取邏輯 ---
+    // 點擊選取硬幣
     document.addEventListener("click", e => {
       const coin = e.target;
       if (!coin.classList.contains("coin")) return;
@@ -251,7 +226,7 @@
       updateCounters();
     });
 
-    // --- 輔助函式：新增硬幣 ---
+    // 輔助函式：新增硬幣
     function addCoin(type, zone) {
       const coin = document.createElement("div");
       coin.className = `coin ${type}`;
