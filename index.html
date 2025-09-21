@@ -248,21 +248,30 @@
             selectedTens.forEach(c => c.remove());
             selectedTens = [];
           } else {
-            const singleTen = document.querySelector(".coin.ten");
-            if (singleTen) singleTen.remove();
+            // 從DOM中找到並移除正在拖曳的那個10元硬幣
+            const allTens = Array.from(tenZone.querySelectorAll(".coin.ten"));
+            // 避免移除一個未被選中的硬幣
+            if (allTens.length > selectedTens.length) {
+                const draggableTen = allTens.find(c => !selectedTens.includes(c));
+                if (draggableTen) draggableTen.remove();
+            }
           }
 
           if (droppedZone.id === "five-zone") {
             const fiveCount = tenCount * 2;
             for (let i = 0; i < fiveCount; i++) addCoin("five", fiveZone);
-            updateCounters();
+            coinSound.currentTime = 0;
+            coinSound.play();
           } else if (droppedZone.id === "one-zone") {
             const oneCount = tenCount * 10;
             for (let i = 0; i < oneCount; i++) addCoin("one", oneZone);
-            updateCounters();
+            coinSound.currentTime = 0;
+            coinSound.play();
+          } else if (droppedZone.id === "ten-zone") {
+            // 如果放回了10元區，則把它們加回來
+            for (let i = 0; i < tenCount; i++) addCoin("ten", tenZone);
           }
-          coinSound.currentTime = 0;
-          coinSound.play();
+          updateCounters();
         }
 
         // 處理 5 元硬幣（單個或多個）到 1 元區的換算
@@ -273,8 +282,11 @@
                 selectedFives.forEach(c => c.remove());
                 selectedFives = [];
             } else {
-                const singleFive = document.querySelector(".coin.five");
-                if (singleFive) singleFive.remove();
+                 const allFives = Array.from(fiveZone.querySelectorAll(".coin.five"));
+                 if(allFives.length > selectedFives.length){
+                    const draggableFive = allFives.find(c => !selectedFives.includes(c));
+                    if(draggableFive) draggableFive.remove();
+                 }
             }
 
             const oneCount = fiveCount * 5;
